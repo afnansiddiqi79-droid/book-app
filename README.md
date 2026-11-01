@@ -1,36 +1,55 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# BookNook — Frontend
 
-## Getting Started
+The frontend for BookNook, a small online library.
 
-First, run the development server:
+## Project description
+
+Premium online book library frontend built with Next.js App Router, React, TypeScript and Tailwind CSS.
+
+## Technologies
+
+- Next.js 16.4.3
+- React 19.3
+- TypeScript 5
+- Tailwind CSS 4
+- React Compiler
+- Swiper (hero slider)
+- Sonner (toasts)
+
+## Installation
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Environment setup
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Copy `.env.example` to `.env.local` and set:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- `NEXT_PUBLIC_API_URL` — backend API base URL (e.g. `http://localhost:5000`)
 
-## Learn More
+## Features
 
-To learn more about Next.js, take a look at the following resources:
+- Responsive landing page with autoplaying hero slider, latest books and how-it-works sections.
+- Public book catalogue with search and category filtering.
+- Book details page with availability and borrow modal.
+- Login / register pages with validation and toast feedback.
+- Add book page (authenticated), edit book page (owner only), my books page with delete confirmation.
+- My borrows page with return action.
+- Profile page with account activity summary.
+- Custom 404 page.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Commands
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- `npm run dev` — start dev server
+- `npm run build` — production build
+- `npm run lint` — ESLint
+- `npx tsc --noEmit` — typecheck
 
-## Deploy on Vercel
+## Deployment
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Vercel-ready via standard Next.js deployment; no custom backend deployment configured yet.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Developer information
+
+Frontend repository: https://github.com/afnansiddiqi79-droid/book-app
