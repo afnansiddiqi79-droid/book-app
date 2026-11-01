@@ -1,9 +1,10 @@
+
 "use client";
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { bookService } from "@/services/api";
+import { borrowService } from "@/services/api";
 import type { Borrow } from "@/types/borrow";
 import { toast } from "sonner";
 
@@ -15,8 +16,7 @@ export default function MyBorrowsPage() {
   useEffect(() => {
     let cancelled = false;
 
-    bookService
-      .getBorrows()
+    borrowService.getBorrows()
       .then((data) => {
         if (!cancelled) {
           setBorrows(data);
@@ -36,9 +36,10 @@ export default function MyBorrowsPage() {
 
   async function handleReturn(borrowId: string) {
     try {
-      await bookService.returnBorrow(borrowId);
+      await borrowService.returnBorrow(borrowId);
       toast.success("Book returned. Thanks for reading!");
-      const data = await bookService.getBorrows();
+
+      const data = await borrowService.getBorrows();
       setBorrows(data);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to return book");
@@ -74,7 +75,9 @@ export default function MyBorrowsPage() {
   return (
     <div className="mx-auto max-w-5xl px-4 py-16 sm:px-6 lg:px-8">
       <h1 className="font-serif text-4xl font-semibold text-navy">My Borrows</h1>
-      <p className="mt-2 text-sm text-slate">Books you have borrowed from BookNook.</p>
+      <p className="mt-2 text-sm text-slate">
+        Books you have borrowed from BookNook.
+      </p>
 
       {borrows.length === 0 ? (
         <div className="mt-12 rounded-2xl border border-dashed border-navy/30 bg-white p-10 text-center">
@@ -107,14 +110,16 @@ export default function MyBorrowsPage() {
                   />
                 ) : null}
               </div>
+
               <div className="min-w-0 flex-1">
-                <p className="font-serif text-lg font-semibold text-ink truncate">
+                <p className="truncate font-serif text-lg font-semibold text-ink">
                   {borrow.bookTitle}
                 </p>
                 <p className="text-sm text-slate">
                   Borrowed {new Date(borrow.borrowDate).toLocaleDateString()}
                 </p>
               </div>
+
               {borrow.status === "borrowed" ? (
                 <button
                   type="button"

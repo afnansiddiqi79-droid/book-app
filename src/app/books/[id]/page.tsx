@@ -79,22 +79,23 @@ export default function BookDetailsPage() {
       </Link>
 
       <div className="mt-8 grid gap-12 lg:grid-cols-2">
-        <div className="relative aspect-[3/4] overflow-hidden rounded-2xl bg-ice shadow-xl">
-          {book.image ? (
-            <Image
-              src={book.image}
-              alt={book.title}
-              fill
-              className="object-cover"
-              priority
-              sizes="(max-width: 1024px) 100vw, 50vw"
-            />
-          ) : (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <span className="font-serif text-6xl text-navy/30">?</span>
-            </div>
-          )}
-        </div>
+  <div className="relative aspect-[3/4] overflow-hidden rounded-2xl bg-ice shadow-xl">
+    {book.image ? (
+      <Image
+        src={book.image}
+        alt={book.title}
+        fill
+        unoptimized
+        priority
+        className="object-cover"
+        sizes="(max-width: 1024px) 100vw, 50vw"
+      />
+    ) : (
+      <div className="absolute inset-0 flex items-center justify-center">
+        <span className="font-serif text-6xl text-navy/30">?</span>
+      </div>
+    )}
+  </div>
 
         <div className="flex flex-col justify-center">
           <p className="text-xs font-semibold uppercase tracking-[0.3em] text-royal">

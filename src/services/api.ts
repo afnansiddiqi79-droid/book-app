@@ -1,8 +1,23 @@
+
 import type { Book } from "@/types/book";
 import type { Borrow } from "@/types/borrow";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000";
+import { createAuthClient } from "better-auth/react";
+import { jwtClient } from "better-auth/client/plugins";
 
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000";
+
+// Better Auth Client
+export const authClient = createAuthClient({
+  baseURL: API_URL,
+  fetchOptions: {
+    credentials: "include",
+  },
+  plugins: [jwtClient()],
+});
+
+// API Error
 export class ApiError extends Error {
   status: number;
 
@@ -13,7 +28,11 @@ export class ApiError extends Error {
   }
 }
 
-async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
+// Common API Fetch Function
+async function apiFetch<T>(
+  path: string,
+  options: RequestInit = {}
+): Promise<T> {
   const token =
     typeof window !== "undefined"
       ? window.localStorage.getItem("booknook_token")
@@ -41,9 +60,13 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
   return data as T;
 }
 
+// Book API
 export const bookService = {
-  getBooks: () => apiFetch<Book[]>(`/books`),
-  getBook: (id: string) => apiFetch<Book>(`/books/${id}`),
+  getBooks: () => apiFetch<Book[]>("/api/books"),
+
+  getBook: (id: string) =>
+    apiFetch<Book>(`/api/books/${id}`),
+
   createBook: (input: {
     title: string;
     author: string;
@@ -54,10 +77,11 @@ export const bookService = {
     userName: string;
     userEmail: string;
   }) =>
-    apiFetch<Book>(`/books`, {
+    apiFetch<Book>("/api/books", {
       method: "POST",
       body: JSON.stringify(input),
     }),
+
   updateBook: (
     id: string,
     input: {
@@ -69,41 +93,38 @@ export const bookService = {
       totalCopies: number;
     }
   ) =>
-    apiFetch<Book>(`/books/${id}`, {
+    apiFetch<Book>(`/api/books/${id}`, {
       method: "PATCH",
       body: JSON.stringify(input),
     }),
+
   deleteBook: (id: string) =>
-    apiFetch<{ success: boolean }>(`/books/${id}`, {
+    apiFetch<{ success: boolean }>(`/api/books/${id}`, {
       method: "DELETE",
     }),
+};
+
+// Upload API
+export const uploadService = {
   uploadImage: (base64Image: string) =>
-    apiFetch<{ imageUrl: string }>(`/api/upload`, {
+    apiFetch<{ imageUrl: string }>("/api/upload", {
       method: "POST",
       body: JSON.stringify({ image: base64Image }),
     }),
-  getBorrows: () => apiFetch<Borrow[]>(`/borrows`),
+};
+
+// Borrow API
+export const borrowService = {
+  getBorrows: () =>
+    apiFetch<Borrow[]>("/api/borrows"),
+
   returnBorrow: (borrowId: string) =>
-    apiFetch<Borrow>(`/borrows/${borrowId}`, { method: "DELETE" }),
-};
-
-export const authService = {
-  signIn: (email: string, password: string) =>
-    apiFetch<{ token: string; user: AuthUser }>("/api/auth/sign-in/email", {
-      method: "POST",
-      body: JSON.stringify({ email, password }),
-    }),
-  signUp: (name: string, email: string, password: string) =>
-    apiFetch<{ token: string; user: AuthUser }>("/api/auth/sign-up/email", {
-      method: "POST",
-      body: JSON.stringify({ name, email, password }),
-    }),
-  signOut: () =>
-    apiFetch<{ success: boolean }>("/api/auth/sign-out", {
-      method: "POST",
+    apiFetch<Borrow>(`/api/borrows/${borrowId}`, {
+      method: "DELETE",
     }),
 };
 
+// Auth User Type
 export interface AuthUser {
   id: string;
   name: string;

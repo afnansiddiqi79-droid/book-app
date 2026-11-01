@@ -20,6 +20,7 @@ export default function BookCard({ book }: BookCardProps) {
             src={book.image}
             alt={book.title}
             fill
+            unoptimized
             className="object-cover"
             sizes="(max-width: 768px) 50vw, 33vw"
           />
@@ -29,14 +30,18 @@ export default function BookCard({ book }: BookCardProps) {
           </div>
         )}
       </div>
+
       <div className="flex flex-1 flex-col gap-1 p-4">
         <p className="text-xs font-medium uppercase tracking-wider text-royal">
           {book.category}
         </p>
+
         <h3 className="font-serif text-lg font-semibold text-ink group-hover:text-royal">
           {book.title}
         </h3>
+
         <p className="text-sm text-slate">{book.author}</p>
+
         <p className="mt-auto pt-2 text-xs text-slate">
           {available
             ? `${book.availableCopies} of ${book.totalCopies} available`
