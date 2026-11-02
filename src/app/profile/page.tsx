@@ -4,13 +4,13 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
-import { bookService } from "@/services/api";
+import { bookService, borrowService } from "@/services/api";
 import type { Book } from "@/types/book";
 import type { Borrow } from "@/types/borrow";
 
 export default function ProfilePage() {
   const router = useRouter();
-  const { user, isAuthenticated, signOut } = useAuth();
+  const { user, isAuthenticated, isLoading, signOut } = useAuth();
   const [books, setBooks] = useState<Book[]>([]);
   const [borrows, setBorrows] = useState<Borrow[]>([]);
 
@@ -27,9 +27,9 @@ export default function ProfilePage() {
       })
       .catch(() => {});
 
-    bookService
+    borrowService
       .getBorrows()
-      .then((data) => {
+      .then((data: Borrow[]) => {
         if (cancelled) return;
         setBorrows(
           data.filter((b) => b.userEmail.toLowerCase() === user.email.toLowerCase())
@@ -41,6 +41,16 @@ export default function ProfilePage() {
       cancelled = true;
     };
   }, [user]);
+
+  if (isLoading) {
+    return (
+      <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6 lg:px-8">
+        <div className="animate-pulse rounded-2xl bg-white p-10">
+          <div className="h-6 w-48 rounded bg-ice" />
+        </div>
+      </div>
+    );
+  }
 
   if (!isAuthenticated || !user) {
     return (
@@ -81,11 +91,15 @@ export default function ProfilePage() {
 
       <div className="mt-8 grid gap-6 sm:grid-cols-3">
         <div className="rounded-2xl bg-white p-6 text-center shadow-sm">
-          <p className="font-serif text-3xl font-semibold text-royal">{books.length}</p>
+          <p className="font-serif text-3xl font-semibold text-royal">
+            {books.length}
+          </p>
           <p className="mt-1 text-xs text-slate">Books added</p>
         </div>
         <div className="rounded-2xl bg-white p-6 text-center shadow-sm">
-          <p className="font-serif text-3xl font-semibold text-royal">{borrows.length}</p>
+          <p className="font-serif text-3xl font-semibold text-royal">
+            {borrows.filter((b) => b.status === "borrowed").length}
+          </p>
           <p className="mt-1 text-xs text-slate">Active borrows</p>
         </div>
         <div className="rounded-2xl bg-white p-6 text-center shadow-sm">

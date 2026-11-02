@@ -1,4 +1,3 @@
-
 "use client";
 
 import {
@@ -6,7 +5,7 @@ import {
   useCallback,
   useContext,
   useMemo,
-  useState,
+  useSyncExternalStore,
   type ReactNode,
 } from "react";
 
@@ -16,6 +15,7 @@ import type { AuthUser } from "@/services/api";
 interface AuthContextValue {
   user: AuthUser | null;
   isAuthenticated: boolean;
+  isLoading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (name: string, email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -23,30 +23,73 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+// Read cached user from localStorage
 function readCachedUser(): AuthUser | null {
   if (typeof window === "undefined") return null;
 
   try {
     const cached = localStorage.getItem("booknook_user");
-    return cached ? JSON.parse(cached) as AuthUser : null;
+    return cached ? (JSON.parse(cached) as AuthUser) : null;
   } catch {
     return null;
   }
 }
 
-async function saveAuthData(user: AuthUser) {
-  const { data, error } = await authClient.token();
+// Module-level auth store so the cached user can be hydrated
+// through the external-store subscription instead of setState-in-effect.
+let authState: { user: AuthUser | null; isLoading: boolean } = {
+  user: null,
+  isLoading: true,
+};
+const authListeners = new Set<() => void>();
 
-  if (error || !data?.token) {
-    throw new Error(error?.message ?? "Could not get authentication token");
+function emitAuthChange() {
+  authListeners.forEach((listener) => listener());
+}
+
+function subscribeAuth(onChange: () => void) {
+  authListeners.add(onChange);
+
+  // Hydrate from localStorage on the client once, after mount.
+  if (authListeners.size === 1) {
+    authState = { user: readCachedUser(), isLoading: false };
+    emitAuthChange();
   }
 
-  localStorage.setItem("booknook_token", data.token);
-  localStorage.setItem("booknook_user", JSON.stringify(user));
+  return () => {
+    authListeners.delete(onChange);
+  };
+}
+
+function getAuthSnapshot() {
+  return authState;
+}
+
+const authServerSnapshot = { user: null, isLoading: true };
+
+function getAuthServerSnapshot() {
+  return authServerSnapshot;
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(readCachedUser);
+  const { user, isLoading } = useSyncExternalStore(
+    subscribeAuth,
+    getAuthSnapshot,
+    getAuthServerSnapshot
+  );
+
+  // Save authentication data
+  const setAuthUser = useCallback((nextUser: AuthUser | null) => {
+    authState = { user: nextUser, isLoading: false };
+
+    if (nextUser) {
+      localStorage.setItem("booknook_user", JSON.stringify(nextUser));
+    } else {
+      localStorage.removeItem("booknook_user");
+    }
+
+    emitAuthChange();
+  }, []);
 
   const signIn = useCallback(async (email: string, password: string) => {
     const { data, error } = await authClient.signIn.email({
@@ -64,33 +107,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       image: data.user.image ?? undefined,
     };
 
-    await saveAuthData(authUser);
-    setUser(authUser);
-  }, []);
+    const { data: tokenData } = await authClient.token();
+    if (!tokenData?.token) {
+      throw new Error("Could not get authentication token");
+    }
+    localStorage.setItem("booknook_token", tokenData.token);
 
-  const signUp = useCallback(
-    async (name: string, email: string, password: string) => {
-      const { data, error } = await authClient.signUp.email({
-        name,
-        email,
-        password,
-      });
+    setAuthUser(authUser);
+  }, [setAuthUser]);
 
-      if (error) throw new Error(error.message);
-      if (!data) throw new Error("Registration failed");
+  const signUp = useCallback(async (name: string, email: string, password: string) => {
+    const { data, error } = await authClient.signUp.email({
+      name,
+      email,
+      password,
+    });
 
-      const authUser: AuthUser = {
-        id: data.user.id,
-        name: data.user.name,
-        email: data.user.email,
-        image: data.user.image ?? undefined,
-      };
+    if (error) throw new Error(error.message);
+    if (!data) throw new Error("Registration failed");
 
-      await saveAuthData(authUser);
-      setUser(authUser);
-    },
-    []
-  );
+    const authUser: AuthUser = {
+      id: data.user.id,
+      name: data.user.name,
+      email: data.user.email,
+      image: data.user.image ?? undefined,
+    };
+
+    const { data: tokenData } = await authClient.token();
+    if (!tokenData?.token) {
+      throw new Error("Could not get authentication token");
+    }
+    localStorage.setItem("booknook_token", tokenData.token);
+
+    setAuthUser(authUser);
+  }, [setAuthUser]);
 
   const signOut = useCallback(async () => {
     try {
@@ -98,7 +148,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       localStorage.removeItem("booknook_token");
       localStorage.removeItem("booknook_user");
-      setUser(null);
+      authState = { user: null, isLoading: false };
+      emitAuthChange();
     }
   }, []);
 
@@ -106,11 +157,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       user,
       isAuthenticated: user !== null,
+      isLoading,
       signIn,
       signUp,
       signOut,
     }),
-    [user, signIn, signUp, signOut]
+    [user, isLoading, signIn, signUp, signOut]
   );
 
   return (
@@ -120,6 +172,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 }
 
+// Custom Auth Hook
 export function useAuth() {
   const ctx = useContext(AuthContext);
 

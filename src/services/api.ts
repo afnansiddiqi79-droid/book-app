@@ -38,27 +38,51 @@ async function apiFetch<T>(
       ? window.localStorage.getItem("booknook_token")
       : null;
 
-  const response = await fetch(`${API_URL}${path}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(options.headers ?? {}),
-    },
-  });
-
-  const text = await response.text();
-  const data = text ? JSON.parse(text) : null;
-
-  if (!response.ok) {
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}${path}`, {
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(options.headers ?? {}),
+      },
+    });
+  } catch {
     throw new ApiError(
-      data?.message ?? `Request failed with status ${response.status}`,
-      response.status
+      "Could not reach the BookNook server. Please check your connection and try again.",
+      0
     );
   }
 
-  return data as T;
+  const text = await response.text();
+  let data: unknown = null;
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = null;
+    }
+  }
+
+  if (!response.ok) {
+    const message =
+      (data as { message?: string } | null)?.message ??
+      `Request failed with status ${response.status}`;
+    throw new ApiError(message, response.status);
+  }
+
+  return (data ?? {}) as T;
 }
+
+// Upload API
+export const uploadService = {
+  uploadImage: (base64Image: string) =>
+    apiFetch<{ imageUrl: string }>("/api/upload", {
+      method: "POST",
+      body: JSON.stringify({ image: base64Image }),
+    }),
+};
 
 // Book API
 export const bookService = {
@@ -67,6 +91,9 @@ export const bookService = {
   getBook: (id: string) =>
     apiFetch<Book>(`/api/books/${id}`),
 
+  uploadImage: (base64Image: string) =>
+    uploadService.uploadImage(base64Image),
+
   createBook: (input: {
     title: string;
     author: string;
@@ -74,8 +101,6 @@ export const bookService = {
     image: string;
     description: string;
     totalCopies: number;
-    userName: string;
-    userEmail: string;
   }) =>
     apiFetch<Book>("/api/books", {
       method: "POST",
@@ -104,19 +129,16 @@ export const bookService = {
     }),
 };
 
-// Upload API
-export const uploadService = {
-  uploadImage: (base64Image: string) =>
-    apiFetch<{ imageUrl: string }>("/api/upload", {
-      method: "POST",
-      body: JSON.stringify({ image: base64Image }),
-    }),
-};
-
 // Borrow API
 export const borrowService = {
   getBorrows: () =>
     apiFetch<Borrow[]>("/api/borrows"),
+
+  borrowBook: (bookId: string) =>
+    apiFetch<Borrow>("/api/borrows", {
+      method: "POST",
+      body: JSON.stringify({ bookId }),
+    }),
 
   returnBorrow: (borrowId: string) =>
     apiFetch<Borrow>(`/api/borrows/${borrowId}`, {

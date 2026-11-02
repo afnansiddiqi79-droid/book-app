@@ -3,6 +3,7 @@ export interface Borrow {
   bookId: string;
   bookTitle: string;
   bookImage: string;
+  userId: string;
   userEmail: string;
   userName: string;
   borrowDate: string;

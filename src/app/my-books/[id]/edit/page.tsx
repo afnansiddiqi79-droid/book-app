@@ -11,7 +11,7 @@ import type { Book } from "@/types/book";
 export default function EditBookPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
   const [book, setBook] = useState<Book | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -38,6 +38,12 @@ export default function EditBookPage() {
     };
   }, [params.id]);
 
+  if (isLoading) {
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-24 text-center text-slate">Loading…</div>
+    );
+  }
+
   if (!isAuthenticated) {
     return (
       <div className="mx-auto max-w-2xl px-4 py-24 text-center">
@@ -58,6 +64,17 @@ export default function EditBookPage() {
       <div className="mx-auto max-w-2xl px-4 py-24 text-center">
         <p className="font-medium text-red-700">Book not found.</p>
         <p className="mt-2 text-sm text-red-600">{error}</p>
+      </div>
+    );
+  }
+
+  if (user && String(book.addedBy) !== String(user.id)) {
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-24 text-center">
+        <h1 className="font-serif text-3xl font-semibold text-navy">Edit Book</h1>
+        <p className="mt-4 text-slate">
+          You can only edit books that you added to BookNook.
+        </p>
       </div>
     );
   }

@@ -1,9 +1,8 @@
-
 "use client";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { authClient } from "@/services/api";
+import { useAuth } from "@/context/auth-context";
 
 const PUBLIC_LINKS = [
   { label: "Home", href: "/" },
@@ -18,17 +17,15 @@ const PRIVATE_LINKS = [
 
 export default function Navbar() {
   const router = useRouter();
-  const { data: session, isPending } = authClient.useSession();
-
-  const isLoggedIn = !!session?.user;
+  const { isAuthenticated, isLoading, signOut } = useAuth();
 
   const handleLogout = async () => {
-    await authClient.signOut();
+    await signOut();
     router.push("/login");
     router.refresh();
   };
 
-  const links = isLoggedIn
+  const links = isAuthenticated
     ? [...PUBLIC_LINKS, ...PRIVATE_LINKS]
     : PUBLIC_LINKS;
 
@@ -56,7 +53,7 @@ export default function Navbar() {
 
         {/* Desktop Auth Buttons */}
         <div className="hidden items-center gap-3 md:flex">
-          {isPending ? null : isLoggedIn ? (
+          {isLoading ? null : isAuthenticated ? (
             <>
               <Link
                 href="/profile"
@@ -66,7 +63,7 @@ export default function Navbar() {
               </Link>
 
               <button
-                onClick={handleLogout}
+                onClick={() => void handleLogout()}
                 className="rounded-full bg-royal px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-navy"
               >
                 Logout
@@ -105,8 +102,8 @@ export default function Navbar() {
             </Link>
           ))}
 
-          {!isPending &&
-            (isLoggedIn ? (
+          {!isLoading &&
+            (isAuthenticated ? (
               <>
                 <Link
                   href="/profile"
@@ -116,7 +113,7 @@ export default function Navbar() {
                 </Link>
 
                 <button
-                  onClick={handleLogout}
+                  onClick={() => void handleLogout()}
                   className="rounded-full bg-royal px-4 py-1.5 text-sm text-white"
                 >
                   Logout

@@ -1,18 +1,26 @@
 "use client";
-
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useParams } from "next/navigation";
-import { bookService } from "@/services/api";
+import { useParams, useRouter } from "next/navigation";
+import { useAuth } from "@/context/auth-context";
+import { borrowService, bookService } from "@/services/api";
 import type { Book } from "@/types/book";
+import { toast } from "sonner";
 
 export default function BookDetailsPage() {
   const params = useParams<{ id: string }>();
+  const router = useRouter();
+  const { user, isAuthenticated } = useAuth();
+
   const [book, setBook] = useState<Book | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showBorrowModal, setShowBorrowModal] = useState(false);
+  const [borrowing, setBorrowing] = useState(false);
+  const [borrowError, setBorrowError] = useState<string | null>(null);
+  const [failedCoverFor, setFailedCoverFor] = useState<string | null>(null);
+  const coverFailed = failedCoverFor === book?._id;
 
   useEffect(() => {
     let cancelled = false;
@@ -27,7 +35,10 @@ export default function BookDetailsPage() {
       })
       .catch((err: unknown) => {
         if (cancelled) return;
-        setError(err instanceof Error ? err.message : "Failed to load book");
+
+        setError(
+          err instanceof Error ? err.message : "Failed to load book"
+        );
         setLoading(false);
       });
 
@@ -35,6 +46,43 @@ export default function BookDetailsPage() {
       cancelled = true;
     };
   }, [params.id]);
+
+  async function handleBorrow() {
+    if (!book) return;
+
+    setBorrowing(true);
+    setBorrowError(null);
+    try {
+      await borrowService.borrowBook(book._id);
+      toast.success(`You borrowed "${book.title}". Happy reading!`);
+      setShowBorrowModal(false);
+      const data = await bookService.getBook(book._id);
+      setBook(data);
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : "Failed to borrow the book. Please try again.";
+      setBorrowError(message);
+      toast.error(message);
+    } finally {
+      setBorrowing(false);
+    }
+  }
+
+  function handleBorrowClick() {
+    if (!isAuthenticated) {
+      router.push(
+        `/login?redirect=${encodeURIComponent(`/books/${params.id}`)}`
+      );
+      return;
+    }
+
+    setBorrowError(null);
+    setShowBorrowModal(true);
+  }
+
+  const today = new Date().toISOString().split("T")[0];
 
   if (loading) {
     return (
@@ -79,23 +127,24 @@ export default function BookDetailsPage() {
       </Link>
 
       <div className="mt-8 grid gap-12 lg:grid-cols-2">
-  <div className="relative aspect-[3/4] overflow-hidden rounded-2xl bg-ice shadow-xl">
-    {book.image ? (
-      <Image
-        src={book.image}
-        alt={book.title}
-        fill
-        unoptimized
-        priority
-        className="object-cover"
-        sizes="(max-width: 1024px) 100vw, 50vw"
-      />
-    ) : (
-      <div className="absolute inset-0 flex items-center justify-center">
-        <span className="font-serif text-6xl text-navy/30">?</span>
-      </div>
-    )}
-  </div>
+        <div className="relative aspect-[3/4] overflow-hidden rounded-2xl bg-ice shadow-xl">
+          {book.image && !coverFailed ? (
+            <Image
+              src={book.image}
+              alt={book.title}
+              fill
+              unoptimized
+              priority
+              onError={() => setFailedCoverFor(book._id)}
+              className="object-cover"
+              sizes="(max-width: 1024px) 100vw, 50vw"
+            />
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="font-serif text-6xl text-navy/30">?</span>
+            </div>
+          )}
+        </div>
 
         <div className="flex flex-col justify-center">
           <p className="text-xs font-semibold uppercase tracking-[0.3em] text-royal">
@@ -126,7 +175,7 @@ export default function BookDetailsPage() {
             {isAvailable ? (
               <button
                 type="button"
-                onClick={() => setShowBorrowModal(true)}
+                onClick={handleBorrowClick}
                 className="w-full rounded-full bg-royal px-8 py-4 text-sm font-semibold text-white transition-colors hover:bg-navy"
               >
                 Borrow This Book
@@ -160,6 +209,7 @@ export default function BookDetailsPage() {
                 <input
                   type="text"
                   disabled
+                  value={user?.name ?? ""}
                   className="mt-1 w-full rounded-xl border border-navy/20 bg-ice px-4 py-2.5 text-sm text-ink outline-none"
                 />
               </label>
@@ -168,6 +218,7 @@ export default function BookDetailsPage() {
                 <input
                   type="email"
                   disabled
+                  value={user?.email ?? ""}
                   className="mt-1 w-full rounded-xl border border-navy/20 bg-ice px-4 py-2.5 text-sm text-ink outline-none"
                 />
               </label>
@@ -175,6 +226,8 @@ export default function BookDetailsPage() {
                 Borrow date
                 <input
                   type="date"
+                  value={today}
+                  disabled
                   className="mt-1 w-full rounded-xl border border-navy/20 bg-ice px-4 py-2.5 text-sm text-ink outline-none"
                 />
               </label>
@@ -182,24 +235,32 @@ export default function BookDetailsPage() {
                 Return date
                 <input
                   type="date"
+                  disabled
                   className="mt-1 w-full rounded-xl border border-navy/20 bg-ice px-4 py-2.5 text-sm text-ink outline-none"
                 />
               </label>
             </div>
 
+            {borrowError ? (
+              <p className="mt-4 text-sm text-red-600">{borrowError}</p>
+            ) : null}
+
             <div className="mt-8 flex justify-end gap-3">
               <button
                 type="button"
                 onClick={() => setShowBorrowModal(false)}
+                disabled={borrowing}
                 className="rounded-full border border-navy/20 px-6 py-2.5 text-sm font-medium text-ink"
               >
                 Cancel
               </button>
               <button
                 type="button"
-                className="rounded-full bg-royal px-6 py-2.5 text-sm font-medium text-white hover:bg-navy"
+                onClick={() => void handleBorrow()}
+                disabled={borrowing}
+                className="rounded-full bg-royal px-6 py-2.5 text-sm font-medium text-white hover:bg-navy disabled:opacity-60"
               >
-                Confirm Borrow
+                {borrowing ? "Borrowing…" : "Confirm Borrow"}
               </button>
             </div>
           </div>

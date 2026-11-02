@@ -1,5 +1,8 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
+import { useState } from "react";
 import type { Book } from "@/types/book";
 
 interface BookCardProps {
@@ -8,6 +11,8 @@ interface BookCardProps {
 
 export default function BookCard({ book }: BookCardProps) {
   const available = book.availableCopies > 0;
+  const [failedFor, setFailedFor] = useState<string | null>(null);
+  const coverFailed = failedFor === book._id;
 
   return (
     <Link
@@ -15,12 +20,13 @@ export default function BookCard({ book }: BookCardProps) {
       className="group flex flex-col overflow-hidden rounded-2xl border border-navy/10 bg-white shadow-sm transition-shadow hover:shadow-lg"
     >
       <div className="relative aspect-[3/4] bg-ice">
-        {book.image ? (
+        {book.image && !coverFailed ? (
           <Image
             src={book.image}
             alt={book.title}
             fill
             unoptimized
+            onError={() => setFailedFor(book._id)}
             className="object-cover"
             sizes="(max-width: 768px) 50vw, 33vw"
           />

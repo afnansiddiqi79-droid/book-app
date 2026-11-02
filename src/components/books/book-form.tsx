@@ -89,8 +89,6 @@ export default function BookForm({ book, onSuccess }: BookFormProps) {
           image: imageToSave,
           description: description.trim(),
           totalCopies: copies,
-          userName: "",
-          userEmail: "",
         });
         toast.success("Book added to the library!");
       }

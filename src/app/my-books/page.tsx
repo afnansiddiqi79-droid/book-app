@@ -9,22 +9,24 @@ import type { Book } from "@/types/book";
 import { toast } from "sonner";
 
 export default function MyBooksPage() {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, isLoading } = useAuth();
   const [books, setBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [bookToDelete, setBookToDelete] = useState<Book | null>(null);
 
   useEffect(() => {
+    if (!user) {
+      return;
+    }
+
     let cancelled = false;
 
     bookService
       .getBooks()
       .then((data) => {
         if (cancelled) return;
-        setBooks(
-          data.filter((b) => (user ? b.addedBy === user.id : false))
-        );
+        setBooks(data.filter((b) => b.addedBy === user.id));
         setLoading(false);
       })
       .catch((err: unknown) => {
@@ -36,8 +38,7 @@ export default function MyBooksPage() {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [user]);
 
   async function handleDelete() {
     if (!bookToDelete) return;
@@ -51,6 +52,16 @@ export default function MyBooksPage() {
       toast.error(err instanceof Error ? err.message : "Failed to delete book");
       setBookToDelete(null);
     }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="mx-auto max-w-5xl px-4 py-16 sm:px-6 lg:px-8">
+        <div className="animate-pulse rounded-2xl bg-white p-10">
+          <div className="h-6 w-48 rounded bg-ice" />
+        </div>
+      </div>
+    );
   }
 
   if (!isAuthenticated) {

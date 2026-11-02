@@ -4,11 +4,13 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useAuth } from "@/context/auth-context";
 import { borrowService } from "@/services/api";
 import type { Borrow } from "@/types/borrow";
 import { toast } from "sonner";
 
 export default function MyBorrowsPage() {
+  const { isAuthenticated, isLoading } = useAuth();
   const [borrows, setBorrows] = useState<Borrow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -44,6 +46,38 @@ export default function MyBorrowsPage() {
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to return book");
     }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="mx-auto max-w-5xl px-4 py-16 sm:px-6 lg:px-8">
+        <div className="animate-pulse rounded-2xl bg-white p-10">
+          <div className="h-6 w-48 rounded bg-ice" />
+          <div className="mt-6 space-y-4">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-24 rounded-xl bg-ice" />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-24 text-center">
+        <h1 className="font-serif text-3xl font-semibold text-navy">My Borrows</h1>
+        <p className="mt-4 text-slate">You need an account to see your borrows.</p>
+        <div className="mt-8 flex justify-center gap-4">
+          <Link href="/login" className="rounded-full bg-royal px-6 py-2.5 text-sm font-medium text-white">
+            Login
+          </Link>
+          <Link href="/register" className="rounded-full border border-royal px-6 py-2.5 text-sm font-medium text-royal">
+            Register
+          </Link>
+        </div>
+      </div>
+    );
   }
 
   if (loading) {

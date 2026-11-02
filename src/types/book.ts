@@ -12,3 +12,12 @@ export interface Book {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface BookInput {
+  title: string;
+  author: string;
+  category: string;
+  image: string;
+  description: string;
+  totalCopies: number;
+}
