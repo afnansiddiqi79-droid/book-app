@@ -3,7 +3,7 @@ import HeroSlider from "@/components/home/hero-slider";
 import LatestBooks from "@/components/home/latest-books";
 import HowItWorks from "@/components/home/how-it-works";
 import Link from "next/link";
-
+import TopCategories from "@/components/home/top-categories";
 export const metadata: Metadata = {
   title: "BookNook — A Small Online Library",
   description:
@@ -37,7 +37,7 @@ export default function Home() {
           <LatestBooks />
         </div>
       </section>
-
+       <TopCategories />
       <HowItWorks />
     </>
   );

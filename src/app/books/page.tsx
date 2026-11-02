@@ -18,7 +18,17 @@ export default function BooksPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
-  const [category, setCategory] = useState<string>("All");
+  const [category, setCategory] = useState<string>(() => {
+  if (typeof window === "undefined") return "All";
+
+  const params = new URLSearchParams(window.location.search);
+  const selectedCategory = params.get("category");
+
+  return selectedCategory &&
+    ALL_CATEGORIES.includes(selectedCategory)
+    ? selectedCategory
+    : "All";
+});
 
   useEffect(() => {
     let cancelled = false;
