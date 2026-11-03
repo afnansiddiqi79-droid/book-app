@@ -142,19 +142,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (error) throw new Error(error.message);
       if (!data) throw new Error("Registration failed");
 
-      // signUp.email() returns session.token (a Better Auth session ID), not a JWT.
-      // Exchange the session for a JWT via authClient.token() -> GET /api/auth/token.
-      const { data: tokenData } = await authClient.token();
-      if (!tokenData?.token) {
-        throw new Error("Registration failed: could not obtain JWT token");
-      }
-
       const authUser: AuthUser = {
         id: data.user.id,
         name: data.user.name,
         email: data.user.email,
         image: data.user.image ?? undefined,
       };
+
+      // signUp.email() returns session.token (a Better Auth session ID), not a JWT.
+      // When auto-sign-in is skipped (e.g., email verification required),
+      // data.token is null and no session cookie is set. In that case we cannot
+      // exchange for a JWT via authClient.token() — the account exists but the
+      // user must log in separately.
+      if (!data.token) {
+        throw new Error("ACCOUNT_CREATED_PLEASE_LOGIN");
+      }
+
+      // Exchange the session token for a JWT via authClient.token() -> GET /api/auth/token.
+      const { data: tokenData } = await authClient.token();
+      if (!tokenData?.token) {
+        throw new Error("Registration failed: could not obtain JWT token");
+      }
 
       localStorage.setItem("booknook_token", tokenData.token);
 

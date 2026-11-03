@@ -42,7 +42,13 @@ export default function RegisterPage() {
       router.push("/");
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Registration failed");
+      const message = err instanceof Error ? err.message : "Registration failed";
+      if (message === "ACCOUNT_CREATED_PLEASE_LOGIN") {
+        toast.success("Account created! Please log in to continue.");
+        router.push("/login");
+        return;
+      }
+      setError(message);
       toast.error("Registration failed. Please try again.");
     } finally {
       setSubmitting(false);
