@@ -112,10 +112,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       image: data.user.image ?? undefined,
     };
 
+    // signIn.email() returns session.token (a Better Auth session ID), not a JWT.
+    // The backend requireAuth middleware verifies JWTs via JWKS, so we must
+    // exchange the session for a JWT via authClient.token() -> GET /api/auth/token.
     const { data: tokenData } = await authClient.token();
     if (!tokenData?.token) {
-      throw new Error("Could not get authentication token");
+      throw new Error("Login failed: could not obtain JWT token");
     }
+
     localStorage.setItem("booknook_token", tokenData.token);
 
     setAuthUser(authUser);
@@ -138,6 +142,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (error) throw new Error(error.message);
       if (!data) throw new Error("Registration failed");
 
+      // signUp.email() returns session.token (a Better Auth session ID), not a JWT.
+      // Exchange the session for a JWT via authClient.token() -> GET /api/auth/token.
+      const { data: tokenData } = await authClient.token();
+      if (!tokenData?.token) {
+        throw new Error("Registration failed: could not obtain JWT token");
+      }
+
       const authUser: AuthUser = {
         id: data.user.id,
         name: data.user.name,
@@ -145,10 +156,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         image: data.user.image ?? undefined,
       };
 
-      const { data: tokenData } = await authClient.token();
-      if (!tokenData?.token) {
-        throw new Error("Could not get authentication token");
-      }
       localStorage.setItem("booknook_token", tokenData.token);
 
       setAuthUser(authUser);
