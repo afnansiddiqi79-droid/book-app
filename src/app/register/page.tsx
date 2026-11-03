@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
+import { authClient } from "@/services/api";
 import { toast } from "sonner";
 
 export default function RegisterPage() {
@@ -15,6 +16,7 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [googleSigningIn, setGoogleSigningIn] = useState(false);
 
   function validatePassword(value: string) {
     if (value.length < 6) return "Password must be at least 6 characters.";
@@ -35,7 +37,7 @@ export default function RegisterPage() {
 
     setSubmitting(true);
     try {
-      await signUp(name.trim(), email.trim(), password);
+      await signUp(name.trim(), email.trim(), password, photoUrl.trim() || undefined);
       toast.success("Account created. Welcome to BookNook!");
       router.push("/");
       router.refresh();
@@ -44,6 +46,28 @@ export default function RegisterPage() {
       toast.error("Registration failed. Please try again.");
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleGoogleSignIn() {
+    setError(null);
+    setGoogleSigningIn(true);
+    try {
+      const { data, error: socialError } =
+        await authClient.signIn.social({ provider: "google" });
+      if (socialError) {
+        throw new Error(socialError.message);
+      }
+      if (!data?.url) {
+        throw new Error("No sign-in URL returned from Google.");
+      }
+      window.location.href = data.url;
+    } catch (err) {
+      setGoogleSigningIn(false);
+      setError(
+        err instanceof Error ? err.message : "Google sign-in failed. Please try again."
+      );
+      toast.error("Google sign-in failed. Please try again.");
     }
   }
 
@@ -101,6 +125,27 @@ export default function RegisterPage() {
           </label>
 
           {error ? <p className="text-sm text-red-600">{error}</p> : null}
+
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t border-navy/20"></span>
+            </div>
+            <div className="relative flex justify-center text-xs uppercase font-semibold text-slate px-2">
+              Or continue with
+            </div>
+          </div>
+
+          <button
+            type="button"
+            disabled={googleSigningIn || submitting}
+            onClick={handleGoogleSignIn}
+            className={`w-full rounded-full border border-navy/20 bg-white px-8 py-2.5 text-sm font-semibold text-ink flex items-center justify-center gap-2 transition-colors hover:bg-ice disabled:opacity-60`}
+          >
+            <span className="relative flex h-5 w-5 items-center justify-center rounded-full border border-navy/20 bg-royal">
+              <span className="text-white font-bold text-xs">G</span>
+            </span>
+            <span>Continue with Google</span>
+          </button>
 
           <button
             type="submit"

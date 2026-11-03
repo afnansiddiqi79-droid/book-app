@@ -17,7 +17,12 @@ interface AuthContextValue {
   isAuthenticated: boolean;
   isLoading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (name: string, email: string, password: string) => Promise<void>;
+  signUp: (
+    name: string,
+    email: string,
+    password: string,
+    image?: string
+  ) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -116,31 +121,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuthUser(authUser);
   }, [setAuthUser]);
 
-  const signUp = useCallback(async (name: string, email: string, password: string) => {
-    const { data, error } = await authClient.signUp.email({
-      name,
-      email,
-      password,
-    });
+  const signUp = useCallback(
+    async (
+      name: string,
+      email: string,
+      password: string,
+      image?: string
+    ) => {
+      const { data, error } = await authClient.signUp.email({
+        name,
+        email,
+        password,
+        ...(image ? { image } : {}),
+      });
 
-    if (error) throw new Error(error.message);
-    if (!data) throw new Error("Registration failed");
+      if (error) throw new Error(error.message);
+      if (!data) throw new Error("Registration failed");
 
-    const authUser: AuthUser = {
-      id: data.user.id,
-      name: data.user.name,
-      email: data.user.email,
-      image: data.user.image ?? undefined,
-    };
+      const authUser: AuthUser = {
+        id: data.user.id,
+        name: data.user.name,
+        email: data.user.email,
+        image: data.user.image ?? undefined,
+      };
 
-    const { data: tokenData } = await authClient.token();
-    if (!tokenData?.token) {
-      throw new Error("Could not get authentication token");
-    }
-    localStorage.setItem("booknook_token", tokenData.token);
+      const { data: tokenData } = await authClient.token();
+      if (!tokenData?.token) {
+        throw new Error("Could not get authentication token");
+      }
+      localStorage.setItem("booknook_token", tokenData.token);
 
-    setAuthUser(authUser);
-  }, [setAuthUser]);
+      setAuthUser(authUser);
+    },
+    [setAuthUser]
+  );
 
   const signOut = useCallback(async () => {
     try {

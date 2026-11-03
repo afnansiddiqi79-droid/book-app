@@ -231,14 +231,9 @@ export default function BookDetailsPage() {
                   className="mt-1 w-full rounded-xl border border-navy/20 bg-ice px-4 py-2.5 text-sm text-ink outline-none"
                 />
               </label>
-              <label className="block text-sm font-medium text-ink">
-                Return date
-                <input
-                  type="date"
-                  disabled
-                  className="mt-1 w-full rounded-xl border border-navy/20 bg-ice px-4 py-2.5 text-sm text-ink outline-none"
-                />
-              </label>
+              <p className="mt-2 text-xs text-slate">
+                The return date is set automatically when you return the book.
+              </p>
             </div>
 
             {borrowError ? (

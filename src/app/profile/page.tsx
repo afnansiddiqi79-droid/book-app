@@ -13,6 +13,7 @@ export default function ProfilePage() {
   const { user, isAuthenticated, isLoading, signOut } = useAuth();
   const [books, setBooks] = useState<Book[]>([]);
   const [borrows, setBorrows] = useState<Borrow[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -23,19 +24,31 @@ export default function ProfilePage() {
       .getBooks()
       .then((data) => {
         if (cancelled) return;
+        setError(null);
         setBooks(data.filter((b) => b.addedBy === user.id));
       })
-      .catch(() => {});
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setError(
+          err instanceof Error ? err.message : "Failed to load your books."
+        );
+      });
 
     borrowService
       .getBorrows()
       .then((data: Borrow[]) => {
         if (cancelled) return;
+        setError(null);
         setBorrows(
           data.filter((b) => b.userEmail.toLowerCase() === user.email.toLowerCase())
         );
       })
-      .catch(() => {});
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setError(
+          err instanceof Error ? err.message : "Failed to load your borrows."
+        );
+      });
 
     return () => {
       cancelled = true;
@@ -57,6 +70,23 @@ export default function ProfilePage() {
       <div className="mx-auto max-w-2xl px-4 py-24 text-center">
         <h1 className="font-serif text-3xl font-semibold text-navy">Profile</h1>
         <p className="mt-4 text-slate">You need an account to view your profile.</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-24 text-center">
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-10">
+          <p className="font-medium text-red-700">{error}</p>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="mt-6 inline-block rounded-full border border-royal px-6 py-2 text-sm font-medium text-royal hover:bg-royal hover:text-white"
+          >
+            Try again
+          </button>
+        </div>
       </div>
     );
   }
