@@ -126,7 +126,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         jwtToken = tokenData?.token ?? null;
       }
     } catch {
-      // Token exchange failed — fall through to error below.
+      // Token exchange failed — try authClient.token() as fallback.
+    }
+    if (!jwtToken) {
+      try {
+        const { data: tokenData } = await authClient.token();
+        jwtToken = tokenData?.token ?? null;
+      } catch {
+        // authClient.token() also failed — fall through to error below.
+      }
     }
     if (!jwtToken) {
       throw new Error("Login failed: could not obtain JWT token");
@@ -174,7 +182,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           jwtToken = tokenData?.token ?? null;
         }
       } catch {
-        // Token exchange failed — fall through to error below.
+        // Token exchange failed — try authClient.token() as fallback.
+      }
+      if (!jwtToken) {
+        try {
+          const { data: tokenData } = await authClient.token();
+          jwtToken = tokenData?.token ?? null;
+        } catch {
+          // authClient.token() also failed — fall through to error below.
+        }
       }
 
       // If we still have no JWT but the account was created, don't hard-fail.
@@ -203,7 +219,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // After Google OAuth redirect, localStorage is empty but a backend session
-  // cookie may exist. Check for it on mount so the frontend becomes authenticated.
+  // cookie may exist. Check for it on mount and whenever loading state changes
+  // (e.g. after useSyncExternalStore hydrates from localStorage), so the
+  // frontend detects an authenticated session established by the backend.
   useEffect(() => {
     let mounted = true;
     async function initSessionFromBackend() {
@@ -246,8 +264,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       mounted = false;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [user, isLoading, setAuthUser]);
 
   // Clear frontend auth state when a protected request returns 401.
   useEffect(() => {

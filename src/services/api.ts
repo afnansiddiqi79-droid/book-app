@@ -28,56 +28,103 @@ export class ApiError extends Error {
   }
 }
 
-// Common API Fetch Function
+/**
+ * Exchange the current backend session for a fresh JWT.
+ * Returns the JWT string, or null if no valid session exists.
+ */
+async function refreshJwt(): Promise<string | null> {
+  if (typeof window === "undefined") return null;
+  try {
+    const tokenResponse = await fetch(`${API_URL}/api/auth/token`, {
+      method: "GET",
+      credentials: "include",
+    });
+    if (tokenResponse.ok) {
+      const tokenData = await tokenResponse.json();
+      return tokenData?.token ?? null;
+    }
+  } catch {
+    // Token refresh failed — fall through.
+  }
+  return null;
+}
+
+/**
+ * Common API Fetch Function with automatic JWT refresh on 401.
+ * On a 401 response, attempts to refresh the JWT via GET /api/auth/token
+ * and retries the original request exactly once. Never retries indefinitely.
+ */
 async function apiFetch<T>(
   path: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const token =
-    typeof window !== "undefined"
-      ? window.localStorage.getItem("booknook_token")
-      : null;
+  const maxAttempts = 2;
 
-  let response: Response;
-  try {
-    response = await fetch(`${API_URL}${path}`, {
-      ...options,
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        ...(options.headers ?? {}),
-      },
-    });
-  } catch {
-    throw new ApiError(
-      "Could not reach the BookNook server. Please check your connection and try again.",
-      0
-    );
-  }
+  async function doFetch(attempt: number): Promise<T> {
+    const token =
+      typeof window !== "undefined"
+        ? window.localStorage.getItem("booknook_token")
+        : null;
 
-  const text = await response.text();
-  let data: unknown = null;
-  if (text) {
+    let response: Response;
     try {
-      data = JSON.parse(text);
+      response = await fetch(`${API_URL}${path}`, {
+        ...options,
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...(options.headers ?? {}),
+        },
+      });
     } catch {
-      data = null;
+      throw new ApiError(
+        "Could not reach the BookNook server. Please check your connection and try again.",
+        0
+      );
     }
+
+    const text = await response.text();
+    let data: unknown = null;
+    if (text) {
+      try {
+        data = JSON.parse(text);
+      } catch {
+        data = null;
+      }
+    }
+
+    if (!response.ok) {
+      // On 401, try to refresh the JWT and retry exactly once.
+      if (
+        response.status === 401 &&
+        attempt < maxAttempts - 1 &&
+        typeof window !== "undefined"
+      ) {
+        const freshToken = await refreshJwt();
+        if (freshToken) {
+          window.localStorage.setItem("booknook_token", freshToken);
+          return doFetch(attempt + 1);
+        }
+        // No valid session — clear stale tokens.
+        window.localStorage.removeItem("booknook_token");
+        window.localStorage.removeItem("booknook_user");
+        window.dispatchEvent(new CustomEvent("booknook-auth-expired"));
+      } else if (response.status === 401 && typeof window !== "undefined") {
+        // Second 401 — clear tokens and notify listeners.
+        window.localStorage.removeItem("booknook_token");
+        window.localStorage.removeItem("booknook_user");
+        window.dispatchEvent(new CustomEvent("booknook-auth-expired"));
+      }
+      const message =
+        (data as { message?: string } | null)?.message ??
+        `Request failed with status ${response.status}`;
+      throw new ApiError(message, response.status);
+    }
+
+    return (data ?? {}) as T;
   }
 
-  if (!response.ok) {
-    if (response.status === 401 && typeof window !== "undefined") {
-      localStorage.removeItem("booknook_token");
-      localStorage.removeItem("booknook_user");
-      window.dispatchEvent(new CustomEvent("booknook-auth-expired"));
-    }
-    const message =
-      (data as { message?: string } | null)?.message ??
-      `Request failed with status ${response.status}`;
-    throw new ApiError(message, response.status);
-  }
-
-  return (data ?? {}) as T;
+  return doFetch(0);
 }
 
 // Upload API
