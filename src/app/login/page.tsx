@@ -46,7 +46,10 @@ function LoginForm() {
     setGoogleSigningIn(true);
     try {
       const { data, error: socialError } =
-        await authClient.signIn.social({ provider: "google" });
+        await authClient.signIn.social({
+          provider: "google",
+          callbackURL: process.env.NEXT_PUBLIC_APP_URL ?? window.location.origin,
+        });
       if (socialError) {
         throw new Error(socialError.message);
       }
