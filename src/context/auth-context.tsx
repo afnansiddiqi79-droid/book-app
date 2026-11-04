@@ -4,12 +4,13 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useSyncExternalStore,
   type ReactNode,
 } from "react";
 
-import { authClient } from "@/services/api";
+import { authClient, API_URL } from "@/services/api";
 import type { AuthUser } from "@/services/api";
 
 interface AuthContextValue {
@@ -112,12 +113,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       image: data.user.image ?? undefined,
     };
 
-    // Prefer the token returned directly by signIn.email(); fall back to
-    // exchanging the session via authClient.token() -> GET /api/auth/token.
-    let jwtToken: string | null = data.token ?? null;
-    if (!jwtToken) {
-      const { data: tokenData } = await authClient.token();
-      jwtToken = tokenData?.token ?? null;
+    // data.token is a Better Auth session token, NOT a JWT.
+    // Always exchange via GET /api/auth/token to obtain a real JWT.
+    let jwtToken: string | null = null;
+    try {
+      const tokenResponse = await fetch(`${API_URL}/api/auth/token`, {
+        method: "GET",
+        credentials: "include",
+      });
+      if (tokenResponse.ok) {
+        const tokenData = await tokenResponse.json();
+        jwtToken = tokenData?.token ?? null;
+      }
+    } catch {
+      // Token exchange failed — fall through to error below.
     }
     if (!jwtToken) {
       throw new Error("Login failed: could not obtain JWT token");
@@ -152,12 +161,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         image: data.user.image ?? undefined,
       };
 
-      // Try to obtain a JWT: prefer data.token from signUp.email(), then fall
-      // back to exchanging the session via authClient.token() -> GET /api/auth/token.
-      let jwtToken: string | null = data.token ?? null;
-      if (!jwtToken) {
-        const { data: tokenData } = await authClient.token();
-        jwtToken = tokenData?.token ?? null;
+      // data.token is a Better Auth session token, NOT a JWT.
+      // Always exchange via GET /api/auth/token to obtain a real JWT.
+      let jwtToken: string | null = null;
+      try {
+        const tokenResponse = await fetch(`${API_URL}/api/auth/token`, {
+          method: "GET",
+          credentials: "include",
+        });
+        if (tokenResponse.ok) {
+          const tokenData = await tokenResponse.json();
+          jwtToken = tokenData?.token ?? null;
+        }
+      } catch {
+        // Token exchange failed — fall through to error below.
       }
 
       // If we still have no JWT but the account was created, don't hard-fail.
@@ -183,6 +200,67 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       authState = { user: null, isLoading: false };
       emitAuthChange();
     }
+  }, []);
+
+  // After Google OAuth redirect, localStorage is empty but a backend session
+  // cookie may exist. Check for it on mount so the frontend becomes authenticated.
+  useEffect(() => {
+    let mounted = true;
+    async function initSessionFromBackend() {
+      if (!mounted || user) return;
+      if (isLoading) return;
+      try {
+        const sessionResponse = await fetch(`${API_URL}/api/auth/get-session`, {
+          method: "GET",
+          credentials: "include",
+        });
+        if (!sessionResponse.ok) return;
+        const sessionData = await sessionResponse.json();
+        if (!sessionData?.user) return;
+
+        const tokenResponse = await fetch(`${API_URL}/api/auth/token`, {
+          method: "GET",
+          credentials: "include",
+        });
+        if (!tokenResponse.ok) return;
+        const tokenData = await tokenResponse.json();
+        if (!tokenData?.token) return;
+
+        const authUser: AuthUser = {
+          id: sessionData.user.id,
+          name: sessionData.user.name,
+          email: sessionData.user.email,
+          image: sessionData.user.image ?? undefined,
+        };
+
+        if (mounted) {
+          localStorage.setItem("booknook_token", tokenData.token);
+          localStorage.setItem("booknook_user", JSON.stringify(authUser));
+          setAuthUser(authUser);
+        }
+      } catch {
+        // No backend session — user remains unauthenticated.
+      }
+    }
+    initSessionFromBackend();
+    return () => {
+      mounted = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Clear frontend auth state when a protected request returns 401.
+  useEffect(() => {
+    const handleAuthExpired = () => {
+      authState = { user: null, isLoading: false };
+      localStorage.removeItem("booknook_token");
+      localStorage.removeItem("booknook_user");
+      emitAuthChange();
+    };
+    window.addEventListener("booknook-auth-expired", handleAuthExpired);
+    return () => {
+      window.removeEventListener("booknook-auth-expired", handleAuthExpired);
+    };
   }, []);
 
   const value = useMemo(

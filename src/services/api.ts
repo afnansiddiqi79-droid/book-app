@@ -5,7 +5,7 @@ import type { Borrow } from "@/types/borrow";
 import { createAuthClient } from "better-auth/react";
 import { jwtClient } from "better-auth/client/plugins";
 
-const API_URL =
+export const API_URL =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000";
 
 // Better Auth Client
@@ -66,6 +66,11 @@ async function apiFetch<T>(
   }
 
   if (!response.ok) {
+    if (response.status === 401 && typeof window !== "undefined") {
+      localStorage.removeItem("booknook_token");
+      localStorage.removeItem("booknook_user");
+      window.dispatchEvent(new CustomEvent("booknook-auth-expired"));
+    }
     const message =
       (data as { message?: string } | null)?.message ??
       `Request failed with status ${response.status}`;
