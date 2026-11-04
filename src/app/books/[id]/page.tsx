@@ -11,7 +11,7 @@ import { toast } from "sonner";
 export default function BookDetailsPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
 
   const [book, setBook] = useState<Book | null>(null);
   const [loading, setLoading] = useState(true);
@@ -21,6 +21,19 @@ export default function BookDetailsPage() {
   const [borrowError, setBorrowError] = useState<string | null>(null);
   const [failedCoverFor, setFailedCoverFor] = useState<string | null>(null);
   const coverFailed = failedCoverFor === book?._id;
+
+  // Require authentication for the Book Details page. While auth is still
+  // loading, do nothing, so logged-in users (e.g. hydrated from localStorage)
+  // are never redirected incorrectly. After login, the login page returns the
+  // user to this page via the redirect query param.
+  useEffect(() => {
+    if (authLoading) return;
+    if (!isAuthenticated) {
+      router.replace(
+        `/login?redirect=${encodeURIComponent(`/books/${params.id}`)}`
+      );
+    }
+  }, [authLoading, isAuthenticated, params.id, router]);
 
   useEffect(() => {
     let cancelled = false;
