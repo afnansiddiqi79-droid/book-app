@@ -8,9 +8,15 @@ import { jwtClient } from "better-auth/client/plugins";
 export const API_URL =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000";
 
+// Auth baseURL must include /api/auth because all Better Auth endpoints are
+// mounted under that path on the backend. getBaseURL only appends /api/auth
+// when basePath is explicitly set; since we don't set basePath here, we
+// include it in baseURL directly.
+const AUTH_BASE_URL = new URL("/api/auth", API_URL).toString();
+
 // Better Auth Client
 export const authClient = createAuthClient({
-  baseURL: API_URL,
+  baseURL: AUTH_BASE_URL,
   fetchOptions: {
     credentials: "include",
   },
