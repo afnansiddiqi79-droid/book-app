@@ -25,6 +25,7 @@ interface AuthContextValue {
     image?: string
   ) => Promise<void>;
   signOut: () => Promise<void>;
+  updateUserName: (name: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -218,6 +219,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // Persist a new display name via Better Auth's update-user endpoint
+  // (saves to the database user record), then update the frontend session
+  // so Profile/Navbar show the new name immediately.
+  const updateUserName = useCallback(
+    async (name: string) => {
+      const { data, error } = await authClient.updateUser({ name });
+      if (error) throw new Error(error.message);
+      if (!data) throw new Error("Failed to update name");
+
+      const nextUser: AuthUser = {
+        id: data.user.id,
+        name: data.user.name,
+        email: data.user.email,
+        image: data.user.image ?? undefined,
+      };
+      setAuthUser(nextUser);
+
+      // Best-effort: refresh the stored JWT so its name claim matches.
+      // Failure here doesn't affect the name update itself.
+      try {
+        const tokenResponse = await fetch(`${API_URL}/api/auth/token`, {
+          method: "GET",
+          credentials: "include",
+        });
+        if (tokenResponse.ok) {
+          const tokenData = await tokenResponse.json();
+          if (tokenData?.token) {
+            localStorage.setItem("booknook_token", tokenData.token);
+          }
+        }
+      } catch {
+        // Keep the existing valid JWT; it still authorizes correctly.
+      }
+    },
+    [setAuthUser]
+  );
+
   // After Google OAuth redirect, localStorage is empty but a backend session
   // cookie may exist. Check for it on mount and whenever loading state changes
   // (e.g. after useSyncExternalStore hydrates from localStorage), so the
@@ -288,8 +326,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signIn,
       signUp,
       signOut,
+      updateUserName,
     }),
-    [user, isLoading, signIn, signUp, signOut]
+    [user, isLoading, signIn, signUp, signOut, updateUserName]
   );
 
   return (

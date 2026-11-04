@@ -7,13 +7,61 @@ import { useAuth } from "@/context/auth-context";
 import { bookService, borrowService } from "@/services/api";
 import type { Book } from "@/types/book";
 import type { Borrow } from "@/types/borrow";
+import { toast } from "sonner";
 
 export default function ProfilePage() {
   const router = useRouter();
-  const { user, isAuthenticated, isLoading, signOut } = useAuth();
+  const { user, isAuthenticated, isLoading, signOut, updateUserName } =
+    useAuth();
   const [books, setBooks] = useState<Book[]>([]);
   const [borrows, setBorrows] = useState<Borrow[]>([]);
   const [error, setError] = useState<string | null>(null);
+
+  // Edit Name state
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [nameValue, setNameValue] = useState("");
+  const [isSavingName, setIsSavingName] = useState(false);
+  const [nameMessage, setNameMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
+
+  function handleEditNameClick() {
+    setNameValue(user?.name ?? "");
+    setNameMessage(null);
+    setIsEditingName(true);
+  }
+
+  function handleCancelEditName() {
+    setIsEditingName(false);
+    setNameMessage(null);
+  }
+
+  async function handleSaveName(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setNameMessage(null);
+
+    const trimmed = nameValue.trim();
+    if (!trimmed) {
+      setNameMessage({ type: "error", text: "Name cannot be empty." });
+      return;
+    }
+
+    setIsSavingName(true);
+    try {
+      await updateUserName(trimmed);
+      setIsEditingName(false);
+      setNameMessage({ type: "success", text: "Name updated successfully." });
+      toast.success("Name updated successfully.");
+    } catch (err) {
+      const text =
+        err instanceof Error ? err.message : "Failed to update name.";
+      setNameMessage({ type: "error", text });
+      toast.error("Failed to update name. Please try again.");
+    } finally {
+      setIsSavingName(false);
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
