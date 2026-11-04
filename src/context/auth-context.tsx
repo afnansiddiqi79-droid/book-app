@@ -112,15 +112,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       image: data.user.image ?? undefined,
     };
 
-    // signIn.email() returns session.token (a Better Auth session ID), not a JWT.
-    // The backend requireAuth middleware verifies JWTs via JWKS, so we must
-    // exchange the session for a JWT via authClient.token() -> GET /api/auth/token.
-    const { data: tokenData } = await authClient.token();
-    if (!tokenData?.token) {
+    // Prefer the token returned directly by signIn.email(); fall back to
+    // exchanging the session via authClient.token() -> GET /api/auth/token.
+    let jwtToken: string | null = data.token ?? null;
+    if (!jwtToken) {
+      const { data: tokenData } = await authClient.token();
+      jwtToken = tokenData?.token ?? null;
+    }
+    if (!jwtToken) {
       throw new Error("Login failed: could not obtain JWT token");
     }
 
-    localStorage.setItem("booknook_token", tokenData.token);
+    localStorage.setItem("booknook_token", jwtToken);
 
     setAuthUser(authUser);
   }, [setAuthUser]);
@@ -149,22 +152,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         image: data.user.image ?? undefined,
       };
 
-      // signUp.email() returns session.token (a Better Auth session ID), not a JWT.
-      // When auto-sign-in is skipped (e.g., email verification required),
-      // data.token is null and no session cookie is set. In that case we cannot
-      // exchange for a JWT via authClient.token() — the account exists but the
-      // user must log in separately.
-      if (!data.token) {
+      // Try to obtain a JWT: prefer data.token from signUp.email(), then fall
+      // back to exchanging the session via authClient.token() -> GET /api/auth/token.
+      let jwtToken: string | null = data.token ?? null;
+      if (!jwtToken) {
+        const { data: tokenData } = await authClient.token();
+        jwtToken = tokenData?.token ?? null;
+      }
+
+      // If we still have no JWT but the account was created, don't hard-fail.
+      // Send the user to log in instead.
+      if (!jwtToken) {
+        localStorage.removeItem("booknook_token");
         throw new Error("ACCOUNT_CREATED_PLEASE_LOGIN");
       }
 
-      // Exchange the session token for a JWT via authClient.token() -> GET /api/auth/token.
-      const { data: tokenData } = await authClient.token();
-      if (!tokenData?.token) {
-        throw new Error("Registration failed: could not obtain JWT token");
-      }
-
-      localStorage.setItem("booknook_token", tokenData.token);
+      localStorage.setItem("booknook_token", jwtToken);
 
       setAuthUser(authUser);
     },
